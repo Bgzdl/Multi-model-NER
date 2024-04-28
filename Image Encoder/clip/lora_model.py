@@ -1,7 +1,7 @@
 import torch
 import math
 import torch.nn as nn
-from model import VisionTransformer
+from .model import VisionTransformer, ResidualAttentionBlock
 
 
 class LoRALayer:
@@ -46,6 +46,9 @@ class LoRA(nn.Module, LoRALayer):
         self.lora_B = nn.Parameter(torch.zeros(out_features, r))
         nn.init.zeros_(self.lora_B)
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}(in_features={self.in_features}, out_features={self.out_features}, rank={self.r})'
+
     def forward(self, x):
         result = self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)
         return result
@@ -53,7 +56,7 @@ class LoRA(nn.Module, LoRALayer):
 
 class LoraResidualAttentionBlock(nn.Module):
     def __init__(self, origin_model: nn.Module, d_model: int, r: int):
-        super(LoraResidualAttentionBlock).__init__()
+        super().__init__()
         self.origin_model = origin_model
         for param in self.origin_model.parameters():
             param.requires_grad = False
@@ -71,6 +74,6 @@ def add_Lora_to_visual_model(visual_model: VisionTransformer, low_rank: int):
     blocks = visual_model.transformer.resblocks
     new_blocks = []
     for block in blocks:
-        new_blocks.append(LoraResidualAttentionBlock(block, 8, low_rank))
+        new_blocks.append(LoraResidualAttentionBlock(block, block.d_model, low_rank))
     visual_model.transformer.resblocks = nn.Sequential(*new_blocks)
     # return visual_model
