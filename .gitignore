@@ -1,3 +1,4 @@
 .idea/
 Image Encoder/test.py
 **/__pycache__/
+/.conda
