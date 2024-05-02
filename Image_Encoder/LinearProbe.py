@@ -3,9 +3,9 @@ import torch
 
 
 class LinearProbe(nn.Module):
-    def __init__(self, output_dim: int, activate_fun: bool = False):
+    def __init__(self, input_dim: int, output_dim: int, activate_fun: bool = False):
         super().__init__()
-        self.projection = nn.Linear(output_dim, 512)
+        self.projection = nn.Linear(input_dim, output_dim)
         if activate_fun:
             self.relu = nn.ReLU()
         else:
