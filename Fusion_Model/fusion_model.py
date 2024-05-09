@@ -9,7 +9,6 @@ import numpy as np
 from torch.cuda.amp import autocast, GradScaler
 
 
-
 class FusionModel(nn.Module):
     def __init__(self, image_model_name: str = 'ViT-B/16', text_model_name: str = 'bert-base-cased', proj_dim=512):
         super().__init__()
@@ -36,11 +35,12 @@ if __name__ == '__main__':
     with autocast():
         for batch in dataloader:
             image, text, label = batch
-            # image = image.to(device)
-            # for key, value in text.items():
-            #     text[key] = value.to(device)
-            # output = model(image, text)
-            # break
+            print(image.shape, text, label)
+            image = image.to(device)
+            for key, value in text.items():
+                text[key] = value.to(device)
+            output = model(image, text)
+            break
 
         # scaler.scale(loss).backward()
         # scaler.step(optimizer)
