@@ -36,11 +36,11 @@ if __name__ == '__main__':
     with autocast():
         for batch in dataloader:
             image, text, label = batch
-            image = image.to(device)
-            for key, value in text.items():
-                text[key] = value.to(device)
-            output = model(image, text)
-            break
+            # image = image.to(device)
+            # for key, value in text.items():
+            #     text[key] = value.to(device)
+            # output = model(image, text)
+            # break
 
         # scaler.scale(loss).backward()
         # scaler.step(optimizer)

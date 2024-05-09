@@ -42,7 +42,8 @@ class CustomDataset(Dataset):
 
         if len(sentence) > 0:
             data.append((sentence, label))
-            imgs.append('twitter2015_images/' + str(imgid))
+            prefix = file_name.split('/')[0]
+            imgs.append(f'{prefix}/' + str(imgid))
             auxlabels.append(auxlabel)
         f.close()
         return data, imgs
@@ -64,7 +65,7 @@ class CustomDataset(Dataset):
 
         for i in range(len(data)):
             for j in range(len(data[i][0])):
-                if (j > 3 and j < len(data[i][0]) - 2):
+                if j > 3 and j < len(data[i][0]) - 2:
                     self.token.append(data[i][0][j])
                     self.label.append(data[i][1][j])
                     self.image.append(imgs[i])
