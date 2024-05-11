@@ -3,15 +3,24 @@ import torch
 import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset
-from sklearn.preprocessing import OneHotEncoder
 
 
 class CustomDataset(Dataset):
+    @staticmethod
+    def pad_list_to_length(lst, target_length, pad_value=None):
+        # 计算需要添加的元素数量
+        padding = [pad_value] * (target_length - len(lst))
+        # 如果列表已经超过或等于目标长度，不进行填充
+        return lst[:target_length] + padding if len(lst) < target_length else lst[:target_length]
+
     def load_data(self, data_path, file_name):
         f = open(os.path.join(data_path, file_name), encoding='utf-8')
         data = []
-        imgs = []
-        auxlabels = []
+        data_sentence = []
+        data_label = []
+        data_img = []
+        data_auxlabel = []
+
         sentence = []
         label = []
         auxlabel = []
@@ -22,9 +31,14 @@ class CustomDataset(Dataset):
                 continue
             if line[0] == "\n":
                 if len(sentence) > 0:
-                    data.append((sentence, label))
-                    imgs.append('twitter2015_images/' + str(imgid))
-                    auxlabels.append(auxlabel)
+                    single_sentence = ' '.join(sentence[4:len(sentence) - 1])
+                    data_sentence.append(single_sentence)
+                    label = label[4:len(label) - 1]
+                    data_label.append(label)
+                    data.append((single_sentence, label))
+                    prefix = file_name.split('/')[0] + '_images'
+                    data_img.append(f'{prefix}/' + str(imgid))
+                    data_auxlabel.append(auxlabel)
                     sentence = []
                     label = []
                     imgid = ''
@@ -41,18 +55,24 @@ class CustomDataset(Dataset):
             auxlabel.append(cur_label[0])
 
         if len(sentence) > 0:
-            data.append((sentence, label))
-            prefix = file_name.split('/')[0]
-            imgs.append(f'{prefix}/' + str(imgid))
-            auxlabels.append(auxlabel)
+            single_sentence = ' '.join(sentence[4:len(sentence) - 1])
+            data_sentence.append(single_sentence)
+            label = label[4:len(label) - 1]
+            data_label.append(label)
+            data.append((single_sentence, label))
+            prefix = file_name.split('/')[0] + '_images'
+            data_img.append(f'{prefix}/' + str(imgid))
+            data_auxlabel.append(auxlabel)
+
         f.close()
-        return data, imgs
+        return data, data_img
 
     def __init__(self, filename, image_preprocess=None, text_preprocess=None, max_len=32):
         self.filename = filename
         self.image = []
-        self.token = []
+        self.sentence = []
         self.label = []
+        self.sentence_len = []
         self.image_preprocess = image_preprocess
         self.text_preprocess = text_preprocess
         self.max_len = max_len
@@ -62,40 +82,48 @@ class CustomDataset(Dataset):
         # 合并数据
         data.extend(data_1)
         imgs.extend(imgs_1)
+        max_sentence_len = 0
+        for item in data:
+            max_sentence_len = max(len(item[1]), max_sentence_len)
 
         for i in range(len(data)):
-            for j in range(len(data[i][0])):
-                if j > 3 and j < len(data[i][0]) - 2:
-                    self.token.append(data[i][0][j])
-                    self.label.append(data[i][1][j])
-                    self.image.append(imgs[i])
+            self.sentence.append(data[i][0])
+            self.sentence_len.append(len(data[i][1]))
+            self.label.append(CustomDataset.pad_list_to_length(data[i][1], max_sentence_len, None))
+            self.image.append(imgs[i])
+
         # image和token类型转换
         self.image = np.array(self.image)
-        # label onehot 编码
-        encoder = OneHotEncoder(sparse=False, handle_unknown='ignore')
-        # 将列表转换为NumPy数组，并改变形状以符合OneHotEncoder的要求
-        category_array = np.array(self.label).reshape(-1, 1)
-        # 拟合并转换数据
-        self.label = encoder.fit_transform(category_array)
+
+        dictlabel = {'B-ORG': [0, 0, 0, 0, 0, 0, 0, 0, 1], 'B-MISC': [0, 0, 0, 0, 0, 0, 0, 1, 0], 'I-ORG': [0, 0, 0, 0, 0, 0, 1, 0, 0],
+                     'B-PER': [0, 0, 0, 0, 0, 1, 0, 0, 0], 'I-MISC': [0, 0, 0, 0, 1, 0, 0, 0, 0], 'O': [0, 0, 0, 1, 0, 0, 0, 0, 0],
+                     'I-PER': [0, 0, 1, 0, 0, 0, 0, 0, 0], 'I-LOC': [0, 1, 0, 0, 0, 0, 0, 0, 0], 'B-LOC': [1, 0, 0, 0, 0, 0, 0, 0, 0],
+                     None: [0, 0, 0, 0, 0, 0, 0, 0, 0]}
+        for i in range(len(self.label)):
+            for j in range(len(self.label[i])):
+                self.label[i][j] = torch.tensor(dictlabel[self.label[i][j]])
+        self.label = [torch.stack(item) for item in self.label]
 
     def __len__(self):
-        return len(self.token)
+        return len(self.image)
 
     def __getitem__(self, index):
         # 获取数据和标签
         image = Image.open(os.path.join(self.filename, self.image[index]))
         if self.image_preprocess:
             image = self.image_preprocess(image)
-        token = self.token[index]
-        if self.text_preprocess:
-            token = self.text_preprocess(token, max_length=self.max_len, truncation=True, padding="max_length", return_tensors='pt')
-            for key, value in token.items():
-                token[key] = torch.squeeze(value, dim=0)
-        label = self.label[index]
+        sentence = self.sentence[index]
 
-        return image, token, label
+        if self.text_preprocess:
+            sentence = self.text_preprocess(sentence, max_length=self.max_len, truncation=True, padding="max_length", return_tensors='pt')
+            for key, value in sentence.items():
+                sentence[key] = torch.squeeze(value, dim=0)
+
+        label = self.label[index]
+        sentence_len = self.sentence_len[index]
+        return image, sentence, label, sentence_len
 
 
 if __name__ == "__main__":
-    A = CustomDataset('../IJCAI2019_data')
-    print(A[0], A[2])
+    A = CustomDataset('../../IJCAI2019_data')
+    print(A[0])
