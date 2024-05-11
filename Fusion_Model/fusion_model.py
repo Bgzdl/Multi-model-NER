@@ -7,14 +7,18 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 import numpy as np
 from torch.cuda.amp import autocast, GradScaler
+from Pipline.pipline import Pipline
+from Fusion_Model.fusion_layer import FusionBlock
 
 
 class FusionModel(nn.Module):
-    def __init__(self, image_model_name: str = 'ViT-B/16', text_model_name: str = 'bert-base-cased', proj_dim=512, num_of_head=8):
+    def __init__(self, image_model_name: str = 'ViT-B/16', text_model_name: str = 'bert-base-cased', proj_dim=512, num_of_heads=8, max_seq_len=64, device='cpu'):
         super().__init__()
         self.visual, self.visual_preprocess = build_image_model(image_model_name, proj_dim=proj_dim)
         self.tokenizer, self.text = build_text_encoder(text_model_name, proj_dim=proj_dim)
-        self.multi_head_attention = nn.MultiheadAttention(embed_dim=proj_dim, num_heads=num_of_head)
+        self.fusion_block = FusionBlock(1, proj_dim, num_of_heads, 0.5)
+        self.fusion_block.to(device)
+        self.pipeline = Pipline(proj_dim, max_seq_len, 9)
 
     def forward(self, image: torch.tensor, text: torch.tensor):
         I = self.visual(image)
@@ -22,31 +26,45 @@ class FusionModel(nn.Module):
         I = I.unsqueeze(1)
         I = I.expand([-1, T.shape[1], -1])
         # I:[batch size, max_seq_length, dimension], T:[batch size, max_seq_length, dimension]
-        fusion_embedding, weight = self.multi_head_attention(query=T, key=I, value=I)
-        # fusion_embedding: [batch size, max_seq_length, dimension]
-        print(I.shape, T.shape, fusion_embedding.shape)
-        return I
+        fusion_embedding = self.fusion_block(I, T)
+        output = self.pipeline(fusion_embedding)
+        return output
+
+
+def calculate_loss(outputs, labels, sentence_len, loss_fun):
+    loss = 0
+    for i in range(outputs.shape[0]):
+        output = outputs[i][:sentence_len[i]]
+        label = labels[i][:sentence_len[i]].float()
+        print(output.shape, label.shape)
+        loss += loss_fun(output, label)
+        break
+    return loss
 
 
 if __name__ == '__main__':
-    model = FusionModel()
+    max_seq_len = 64
     device = 'cuda'
+    model = FusionModel(max_seq_len=max_seq_len, device=device)
     model.to(device)
-    # print(model.visual_preprocess)
-    dataset = CustomDataset('../../IJCAI2019_data', image_preprocess=model.visual_preprocess, text_preprocess=model.tokenizer, max_len=64)
-    # print(len(dataset))
+    dataset = CustomDataset('../../IJCAI2019_data', image_preprocess=model.visual_preprocess, text_preprocess=model.tokenizer, max_len=max_seq_len)
     max_len = 0
     dataloader = DataLoader(dataset, batch_size=16)
     scaler = GradScaler()
+    loss = nn.CrossEntropyLoss()
+    # 此处一定要使用混合精度进行训练
     with autocast():
         for batch in dataloader:
             image, text, label, sentence_len = batch
             # label: max_sentence_len * batch size
-            # print(image.shape, sentence_len, label.shape)
             image = image.to(device)
             for key, value in text.items():
                 text[key] = value.to(device)
+            label = label.to(device)
             output = model(image, text)
+            print(label.shape)
+            print(output.shape)
+            loss = calculate_loss(output, label, sentence_len, loss)
             break
 
         # scaler.scale(loss).backward()
