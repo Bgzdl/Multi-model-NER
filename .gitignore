@@ -1,4 +1,5 @@
 .idea/
-Image Encoder/test.py
+**/test.py
 **/__pycache__/
 /.conda
+**/distilbert-NER/

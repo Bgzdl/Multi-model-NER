@@ -25,11 +25,12 @@ class Pipline(nn.Module):
         return x
 
 
-# max_length = 10
-# dimension = 10
-# categories = 2
-# m = Pipline(dimension=dimension,max_length=max_length,categories=categories)
-# x = torch.rand(max_length, dimension)
-# y = m(x)
-# print(x)
-# print(y)
+if __name__ == "__main__":
+    max_length = 10
+    dimension = 10
+    categories = 2
+    m = Pipline(dimension=dimension, max_length=max_length, categories=categories)
+    x = torch.rand(max_length, dimension)
+    y = m(x)
+    print(x)
+    print(y)

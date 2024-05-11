@@ -6,6 +6,13 @@ from torch.utils.data import Dataset
 
 
 class CustomDataset(Dataset):
+    @staticmethod
+    def pad_list_to_length(lst, target_length, pad_value=None):
+        # 计算需要添加的元素数量
+        padding = [pad_value] * (target_length - len(lst))
+        # 如果列表已经超过或等于目标长度，不进行填充
+        return lst[:target_length] + padding if len(lst) < target_length else lst[:target_length]
+
     def load_data(self, data_path, file_name):
         f = open(os.path.join(data_path, file_name), encoding='utf-8')
         data = []
@@ -24,12 +31,12 @@ class CustomDataset(Dataset):
                 continue
             if line[0] == "\n":
                 if len(sentence) > 0:
-                    single_sentence = ' '.join(sentence[4:len(sentence)-1])
+                    single_sentence = ' '.join(sentence[4:len(sentence) - 1])
                     data_sentence.append(single_sentence)
-                    label = label[4:len(label)-1]
+                    label = label[4:len(label) - 1]
                     data_label.append(label)
-                    data.append((single_sentence,label))
-                    prefix = file_name.split('/')[0]+'_images'
+                    data.append((single_sentence, label))
+                    prefix = file_name.split('/')[0] + '_images'
                     data_img.append(f'{prefix}/' + str(imgid))
                     data_auxlabel.append(auxlabel)
                     sentence = []
@@ -48,23 +55,24 @@ class CustomDataset(Dataset):
             auxlabel.append(cur_label[0])
 
         if len(sentence) > 0:
-            single_sentence = ' '.join(sentence[4:len(sentence)-1])
+            single_sentence = ' '.join(sentence[4:len(sentence) - 1])
             data_sentence.append(single_sentence)
-            label = label[4:len(label)-1]
+            label = label[4:len(label) - 1]
             data_label.append(label)
-            data.append((single_sentence,label))
-            prefix = file_name.split('/')[0]+'_images'
+            data.append((single_sentence, label))
+            prefix = file_name.split('/')[0] + '_images'
             data_img.append(f'{prefix}/' + str(imgid))
             data_auxlabel.append(auxlabel)
-  
+
         f.close()
-        return data, data_img 
+        return data, data_img
 
     def __init__(self, filename, image_preprocess=None, text_preprocess=None, max_len=32):
         self.filename = filename
         self.image = []
         self.sentence = []
         self.label = []
+        self.sentence_len = []
         self.image_preprocess = image_preprocess
         self.text_preprocess = text_preprocess
         self.max_len = max_len
@@ -74,29 +82,30 @@ class CustomDataset(Dataset):
         # 合并数据
         data.extend(data_1)
         imgs.extend(imgs_1)
+        max_sentence_len = 0
+        for item in data:
+            max_sentence_len = max(len(item[1]), max_sentence_len)
 
         for i in range(len(data)):
             self.sentence.append(data[i][0])
-            self.label.append(data[i][1])
+            self.sentence_len.append(len(data[i][1]))
+            self.label.append(CustomDataset.pad_list_to_length(data[i][1], max_sentence_len, None))
             self.image.append(imgs[i])
+
         # image和token类型转换
         self.image = np.array(self.image)
 
-        setlabel = []
-        for i in self.label:
-            for j in i:
-                setlabel.append(j)
-        setlabel = set(setlabel)
-
-        dictlabel = {'B-ORG':[0,0,0,0,0,0,0,0,1], 'B-MISC':[0,0,0,0,0,0,0,1,0], 'I-ORG':[0,0,0,0,0,0,1,0,0], 
-                     'B-PER':[0,0,0,0,0,1,0,0,0], 'I-MISC':[0,0,0,0,1,0,0,0,0], 'O':[0,0,0,1,0,0,0,0,0], 
-                     'I-PER':[0,0,1,0,0,0,0,0,0], 'I-LOC':[0,1,0,0,0,0,0,0,0], 'B-LOC':[1,0,0,0,0,0,0,0,0]}
+        dictlabel = {'B-ORG': [0, 0, 0, 0, 0, 0, 0, 0, 1], 'B-MISC': [0, 0, 0, 0, 0, 0, 0, 1, 0], 'I-ORG': [0, 0, 0, 0, 0, 0, 1, 0, 0],
+                     'B-PER': [0, 0, 0, 0, 0, 1, 0, 0, 0], 'I-MISC': [0, 0, 0, 0, 1, 0, 0, 0, 0], 'O': [0, 0, 0, 1, 0, 0, 0, 0, 0],
+                     'I-PER': [0, 0, 1, 0, 0, 0, 0, 0, 0], 'I-LOC': [0, 1, 0, 0, 0, 0, 0, 0, 0], 'B-LOC': [1, 0, 0, 0, 0, 0, 0, 0, 0],
+                     None: [0, 0, 0, 0, 0, 0, 0, 0, 0]}
         for i in range(len(self.label)):
             for j in range(len(self.label[i])):
                 self.label[i][j] = torch.tensor(dictlabel[self.label[i][j]])
-        
+        self.label = [torch.stack(item) for item in self.label]
+
     def __len__(self):
-        return len(self.token)
+        return len(self.image)
 
     def __getitem__(self, index):
         # 获取数据和标签
@@ -111,10 +120,10 @@ class CustomDataset(Dataset):
                 sentence[key] = torch.squeeze(value, dim=0)
 
         label = self.label[index]
-
-        return image, sentence, label
+        sentence_len = self.sentence_len[index]
+        return image, sentence, label, sentence_len
 
 
 if __name__ == "__main__":
-    A = CustomDataset('../IJCAI2019_data')
+    A = CustomDataset('../../IJCAI2019_data')
     print(A[0])
