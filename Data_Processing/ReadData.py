@@ -2,8 +2,10 @@ import os
 import torch
 import numpy as np
 from PIL import Image
+import PIL
 from torch.utils.data import Dataset
 
+wrong_jpg = ['O_2548.jpg', 'O_1478.jpg', 'O_2955.jpg', 'O_2366.jpg', 'O_2430.jpg', 'O_2590.jpg']
 
 class CustomDataset(Dataset):
     @staticmethod
@@ -30,19 +32,22 @@ class CustomDataset(Dataset):
                 imgid = line.strip().split('IMGID:')[1] + '.jpg'
                 continue
             if line[0] == "\n":
-                if len(sentence) > 0:
-                    single_sentence = ' '.join(sentence[4:len(sentence) - 1])
-                    data_sentence.append(single_sentence)
-                    label = label[4:len(label) - 1]
-                    data_label.append(label)
-                    data.append((single_sentence, label))
-                    prefix = file_name.split('/')[0] + '_images'
-                    data_img.append(f'{prefix}/' + str(imgid))
-                    data_auxlabel.append(auxlabel)
-                    sentence = []
-                    label = []
-                    imgid = ''
-                    auxlabel = []
+                try:
+                    with Image.open(os.path.join(data_path, file_name.split('/')[0] + '_images', imgid)) as im:
+                        single_sentence = ' '.join(sentence[1:len(sentence)])
+                        data_sentence.append(single_sentence)
+                        label = label[1:len(label)]
+                        data_label.append(label)
+                        data.append((single_sentence, label))
+                        prefix = file_name.split('/')[0] + '_images'
+                        data_img.append(f'{prefix}/' + str(imgid))
+                        data_auxlabel.append(auxlabel)
+                        sentence = []
+                        label = []
+                        imgid = ''
+                        auxlabel = []
+                except IOError:
+                    pass
                 continue
             splits = line.split('\t')
             sentence.append(splits[0])
@@ -54,15 +59,19 @@ class CustomDataset(Dataset):
             label.append(cur_label)
             auxlabel.append(cur_label[0])
 
-        if len(sentence) > 0:
-            single_sentence = ' '.join(sentence[4:len(sentence) - 1])
-            data_sentence.append(single_sentence)
-            label = label[4:len(label) - 1]
-            data_label.append(label)
-            data.append((single_sentence, label))
-            prefix = file_name.split('/')[0] + '_images'
-            data_img.append(f'{prefix}/' + str(imgid))
-            data_auxlabel.append(auxlabel)
+        if len(sentence) > 0 and imgid not in wrong_jpg:
+            try:
+                with Image.open(os.path.join(data_path, file_name.split('/')[0] + '_images', imgid)) as im:
+                    single_sentence = ' '.join(sentence[1:len(sentence)])
+                    data_sentence.append(single_sentence)
+                    label = label[1:len(label)]
+                    data_label.append(label)
+                    data.append((single_sentence, label))
+                    prefix = file_name.split('/')[0] + '_images'
+                    data_img.append(f'{prefix}/' + str(imgid))
+                    data_auxlabel.append(auxlabel)
+            except IOError:
+                pass
 
         f.close()
         return data, data_img
@@ -89,6 +98,9 @@ class CustomDataset(Dataset):
         for i in range(len(data)):
             self.sentence.append(data[i][0])
             self.sentence_len.append(len(data[i][1]))
+            if len(data[i][1]) == 0:
+                # print(data[i][0], data[i][1])
+                print(imgs[i])
             self.label.append(CustomDataset.pad_list_to_length(data[i][1], max_sentence_len, None))
             self.image.append(imgs[i])
 
@@ -109,7 +121,13 @@ class CustomDataset(Dataset):
 
     def __getitem__(self, index):
         # 获取数据和标签
-        image = Image.open(os.path.join(self.filename, self.image[index]))
+        if self.sentence_len[index] == 0:
+            print(os.path.join(self.filename, self.image[index]))
+        try:
+            image = Image.open(os.path.join(self.filename, self.image[index]))
+        except PIL.UnidentifiedImageError:
+            print(self.image[index])
+            image = Image.open(os.path.join('../IJCAI2019_data/twitter2017_images', '16_05_01_6.jpg'))
         if self.image_preprocess:
             image = self.image_preprocess(image)
         sentence = self.sentence[index]
