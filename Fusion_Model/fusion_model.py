@@ -62,8 +62,6 @@ if __name__ == '__main__':
                 text[key] = value.to(device)
             label = label.to(device)
             output = model(image, text)
-            print(label.shape)
-            print(output.shape)
             loss = calculate_loss(output, label, sentence_len, loss)
             break
 
