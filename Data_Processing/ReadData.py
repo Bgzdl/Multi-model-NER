@@ -24,18 +24,22 @@ class CustomDataset(Dataset):
                 continue
             if line[0] == "\n":
                 if len(sentence) > 0:
-                    single_sentence = ' '.join(sentence[4:len(sentence)-1])
-                    data_sentence.append(single_sentence)
-                    label = label[4:len(label)-1]
-                    data_label.append(label)
-                    data.append((single_sentence,label))
-                    prefix = file_name.split('/')[0]+'_images'
-                    data_img.append(f'{prefix}/' + str(imgid))
-                    data_auxlabel.append(auxlabel)
-                    sentence = []
-                    label = []
-                    imgid = ''
-                    auxlabel = []
+                    try:
+                        with Image.open(os.path.join(data_path, file_name.split('/')[0]+'_images', imgid)) as im:
+                            single_sentence = ' '.join(sentence[1:len(sentence)])
+                            data_sentence.append(single_sentence)
+                            label = label[1:len(label)]
+                            data_label.append(label)
+                            data.append((single_sentence,label))
+                            prefix = file_name.split('/')[0]+'_images'
+                            data_img.append(f'{prefix}/' + str(imgid))
+                            data_auxlabel.append(auxlabel)
+                            sentence = []
+                            label = []
+                            imgid = ''
+                            auxlabel = []
+                    except IOError:
+                        pass
                 continue
             splits = line.split('\t')
             sentence.append(splits[0])
@@ -48,19 +52,23 @@ class CustomDataset(Dataset):
             auxlabel.append(cur_label[0])
 
         if len(sentence) > 0:
-            single_sentence = ' '.join(sentence[4:len(sentence)-1])
-            data_sentence.append(single_sentence)
-            label = label[4:len(label)-1]
-            data_label.append(label)
-            data.append((single_sentence,label))
-            prefix = file_name.split('/')[0]+'_images'
-            data_img.append(f'{prefix}/' + str(imgid))
-            data_auxlabel.append(auxlabel)
+            try:
+                with Image.open(os.path.join(data_path, file_name.split('/')[0]+'_images', imgid)) as im:
+                    single_sentence = ' '.join(sentence[1:len(sentence)])
+                    data_sentence.append(single_sentence)
+                    label = label[1:len(label)]
+                    data_label.append(label)
+                    data.append((single_sentence,label))
+                    prefix = file_name.split('/')[0]+'_images'
+                    data_img.append(f'{prefix}/' + str(imgid))
+                    data_auxlabel.append(auxlabel)
+            except IOError:
+                pass
   
         f.close()
         return data, data_img 
 
-    def __init__(self, filename, image_preprocess=None, text_preprocess=None, max_len=32):
+    def __init__(self, filename, mode, image_preprocess=None, text_preprocess=None, max_len=32):
         self.filename = filename
         self.image = []
         self.sentence = []
@@ -69,8 +77,15 @@ class CustomDataset(Dataset):
         self.text_preprocess = text_preprocess
         self.max_len = max_len
         # 读取数据
-        data, imgs = self.load_data(filename, 'twitter2015/train.txt')
-        data_1, imgs_1 = self.load_data(filename, 'twitter2017/train.txt')
+        if mode==0:
+            data, imgs = self.load_data(filename, 'twitter2015/train.txt')
+            data_1, imgs_1 = self.load_data(filename, 'twitter2017/train.txt')
+        elif mode==1:
+            data, imgs = self.load_data(filename, 'twitter2015/valid.txt')
+            data_1, imgs_1 = self.load_data(filename, 'twitter2017/valid.txt')
+        elif mode==2:
+            data, imgs = self.load_data(filename, 'twitter2015/test.txt')
+            data_1, imgs_1 = self.load_data(filename, 'twitter2017/test.txt')
         # 合并数据
         data.extend(data_1)
         imgs.extend(imgs_1)
@@ -105,16 +120,32 @@ class CustomDataset(Dataset):
             image = self.image_preprocess(image)
         sentence = self.sentence[index]
 
+        # setoflen = []
+        # for i in range(len(self.sentence)):
+        #     setoflen.append(len(self.sentence[i]))
+        # setoflen = set(setoflen)
+        # print(setoflen)
+
         if self.text_preprocess:
             sentence = self.text_preprocess(sentence, max_length=self.max_len, truncation=True, padding="max_length", return_tensors='pt')
             for key, value in sentence.items():
                 sentence[key] = torch.squeeze(value, dim=0)
 
         label = self.label[index]
-
+        # print(len(self.label))
         return image, sentence, label
 
 
 if __name__ == "__main__":
-    A = CustomDataset('../IJCAI2019_data')
-    print(A[0])
+    # training set
+    A = CustomDataset('../IJCAI2019_data', 0)
+    for i in range(7122):
+        A[i]
+    # validation set
+    B = CustomDataset('../IJCAI2019_data', 1)
+    for i in range(1664):
+        B[i]
+    # test set
+    C = CustomDataset('../IJCAI2019_data', 2)
+    for i in range(3929):
+        C[i]
