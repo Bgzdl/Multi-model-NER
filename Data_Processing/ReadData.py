@@ -32,22 +32,23 @@ class CustomDataset(Dataset):
                 imgid = line.strip().split('IMGID:')[1] + '.jpg'
                 continue
             if line[0] == "\n":
-                try:
-                    with Image.open(os.path.join(data_path, file_name.split('/')[0] + '_images', imgid)) as im:
-                        single_sentence = ' '.join(sentence[1:len(sentence)])
-                        data_sentence.append(single_sentence)
-                        label = label[1:len(label)]
-                        data_label.append(label)
-                        data.append((single_sentence, label))
-                        prefix = file_name.split('/')[0] + '_images'
-                        data_img.append(f'{prefix}/' + str(imgid))
-                        data_auxlabel.append(auxlabel)
-                        sentence = []
-                        label = []
-                        imgid = ''
-                        auxlabel = []
-                except IOError:
-                    pass
+                if len(sentence) > 0:
+                    try:
+                        with Image.open(os.path.join(data_path, file_name.split('/')[0]+'_images', imgid)) as im:
+                            single_sentence = ' '.join(sentence[1:len(sentence)])
+                            data_sentence.append(single_sentence)
+                            label = label[1:len(label)]
+                            data_label.append(label)
+                            data.append((single_sentence,label))
+                            prefix = file_name.split('/')[0]+'_images'
+                            data_img.append(f'{prefix}/' + str(imgid))
+                            data_auxlabel.append(auxlabel)
+                            sentence = []
+                            label = []
+                            imgid = ''
+                            auxlabel = []
+                    except IOError:
+                        pass
                 continue
             splits = line.split('\t')
             sentence.append(splits[0])
@@ -59,24 +60,23 @@ class CustomDataset(Dataset):
             label.append(cur_label)
             auxlabel.append(cur_label[0])
 
-        if len(sentence) > 0 and imgid not in wrong_jpg:
+        if len(sentence) > 0:
             try:
-                with Image.open(os.path.join(data_path, file_name.split('/')[0] + '_images', imgid)) as im:
+                with Image.open(os.path.join(data_path, file_name.split('/')[0]+'_images', imgid)) as im:
                     single_sentence = ' '.join(sentence[1:len(sentence)])
                     data_sentence.append(single_sentence)
                     label = label[1:len(label)]
                     data_label.append(label)
-                    data.append((single_sentence, label))
-                    prefix = file_name.split('/')[0] + '_images'
+                    data.append((single_sentence,label))
+                    prefix = file_name.split('/')[0]+'_images'
                     data_img.append(f'{prefix}/' + str(imgid))
                     data_auxlabel.append(auxlabel)
             except IOError:
                 pass
-
         f.close()
         return data, data_img
 
-    def __init__(self, filename, image_preprocess=None, text_preprocess=None, max_len=32):
+    def __init__(self, filename, mode, image_preprocess=None, text_preprocess=None, max_len=32):
         self.filename = filename
         self.image = []
         self.sentence = []
@@ -86,8 +86,17 @@ class CustomDataset(Dataset):
         self.text_preprocess = text_preprocess
         self.max_len = max_len
         # 读取数据
-        data, imgs = self.load_data(filename, 'twitter2015/train.txt')
-        data_1, imgs_1 = self.load_data(filename, 'twitter2017/train.txt')
+        if mode=='train':
+            data, imgs = self.load_data(filename, 'twitter2015/train.txt')
+            data_1, imgs_1 = self.load_data(filename, 'twitter2017/train.txt')
+        elif mode=='valid':
+            data, imgs = self.load_data(filename, 'twitter2015/valid.txt')
+            data_1, imgs_1 = self.load_data(filename, 'twitter2017/valid.txt')
+        elif mode=='test':
+            data, imgs = self.load_data(filename, 'twitter2015/test.txt')
+            data_1, imgs_1 = self.load_data(filename, 'twitter2017/test.txt')
+        else:
+            raise Exception("Mode Error, please choose 'train', 'valid' or 'test'")
         # 合并数据
         data.extend(data_1)
         imgs.extend(imgs_1)
@@ -122,11 +131,11 @@ class CustomDataset(Dataset):
     def __getitem__(self, index):
         # 获取数据和标签
         if self.sentence_len[index] == 0:
-            print(os.path.join(self.filename, self.image[index]))
+            print(f'Sentence length is zero, image file name is {os.path.join(self.filename, self.image[index])}.')
         try:
             image = Image.open(os.path.join(self.filename, self.image[index]))
         except PIL.UnidentifiedImageError:
-            print(self.image[index])
+            print(f'Image error, image file name is {self.image[index]}.')
             image = Image.open(os.path.join('../IJCAI2019_data/twitter2017_images', '16_05_01_6.jpg'))
         if self.image_preprocess:
             image = self.image_preprocess(image)
@@ -143,5 +152,15 @@ class CustomDataset(Dataset):
 
 
 if __name__ == "__main__":
-    A = CustomDataset('../../IJCAI2019_data')
-    print(A[0])
+    # training set
+    A = CustomDataset('../IJCAI2019_data', 0)
+    for i in range(7122):
+        A[i]
+    # validation set
+    B = CustomDataset('../IJCAI2019_data', 1)
+    for i in range(1664):
+        B[i]
+    # test set
+    C = CustomDataset('../IJCAI2019_data', 2)
+    for i in range(3929):
+        C[i]

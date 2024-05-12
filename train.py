@@ -30,7 +30,7 @@ if __name__ == "__main__":
     model = FusionModel(max_seq_len=max_seq_len, device=device)
     model.to(device)
     # 数据准备
-    dataset = CustomDataset('../IJCAI2019_data', image_preprocess=model.visual_preprocess, text_preprocess=model.tokenizer, max_len=max_seq_len)
+    dataset = CustomDataset('../IJCAI2019_data', mode='train', image_preprocess=model.visual_preprocess, text_preprocess=model.tokenizer, max_len=max_seq_len)
     dataloader = DataLoader(dataset, batch_size=16)
     # 损失函数，优化器，混合进度scaler，学习率调度器
     scaler = GradScaler()
