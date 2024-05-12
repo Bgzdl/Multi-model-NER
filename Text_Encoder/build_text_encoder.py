@@ -19,7 +19,6 @@ class TextEncoder(nn.Module):
                 param.requires_grad = False
 
         input_dim = base_model.config.hidden_size
-        print(base_model.config.hidden_size)
         self.projection = nn.Linear(input_dim, proj_dim)
         self.act_fn = nn.ReLU() if use_act_fn else nn.Identity()
 

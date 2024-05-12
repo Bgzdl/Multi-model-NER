@@ -2,10 +2,19 @@ import os
 import torch
 import numpy as np
 from PIL import Image
+import PIL
 from torch.utils.data import Dataset
 
+wrong_jpg = ['O_2548.jpg', 'O_1478.jpg', 'O_2955.jpg', 'O_2366.jpg', 'O_2430.jpg', 'O_2590.jpg']
 
 class CustomDataset(Dataset):
+    @staticmethod
+    def pad_list_to_length(lst, target_length, pad_value=None):
+        # 计算需要添加的元素数量
+        padding = [pad_value] * (target_length - len(lst))
+        # 如果列表已经超过或等于目标长度，不进行填充
+        return lst[:target_length] + padding if len(lst) < target_length else lst[:target_length]
+
     def load_data(self, data_path, file_name):
         f = open(os.path.join(data_path, file_name), encoding='utf-8')
         data = []
@@ -64,67 +73,73 @@ class CustomDataset(Dataset):
                     data_auxlabel.append(auxlabel)
             except IOError:
                 pass
-  
         f.close()
-        return data, data_img 
+        return data, data_img
 
     def __init__(self, filename, mode, image_preprocess=None, text_preprocess=None, max_len=32):
         self.filename = filename
         self.image = []
         self.sentence = []
         self.label = []
+        self.sentence_len = []
         self.image_preprocess = image_preprocess
         self.text_preprocess = text_preprocess
         self.max_len = max_len
         # 读取数据
-        if mode==0:
+        if mode=='train':
             data, imgs = self.load_data(filename, 'twitter2015/train.txt')
             data_1, imgs_1 = self.load_data(filename, 'twitter2017/train.txt')
-        elif mode==1:
+        elif mode=='valid':
             data, imgs = self.load_data(filename, 'twitter2015/valid.txt')
             data_1, imgs_1 = self.load_data(filename, 'twitter2017/valid.txt')
-        elif mode==2:
+        elif mode=='test':
             data, imgs = self.load_data(filename, 'twitter2015/test.txt')
             data_1, imgs_1 = self.load_data(filename, 'twitter2017/test.txt')
+        else:
+            raise Exception("Mode Error, please choose 'train', 'valid' or 'test'")
         # 合并数据
         data.extend(data_1)
         imgs.extend(imgs_1)
+        max_sentence_len = 0
+        for item in data:
+            max_sentence_len = max(len(item[1]), max_sentence_len)
 
         for i in range(len(data)):
             self.sentence.append(data[i][0])
-            self.label.append(data[i][1])
+            self.sentence_len.append(len(data[i][1]))
+            if len(data[i][1]) == 0:
+                # print(data[i][0], data[i][1])
+                print(imgs[i])
+            self.label.append(CustomDataset.pad_list_to_length(data[i][1], max_sentence_len, None))
             self.image.append(imgs[i])
+
         # image和token类型转换
         self.image = np.array(self.image)
 
-        setlabel = []
-        for i in self.label:
-            for j in i:
-                setlabel.append(j)
-        setlabel = set(setlabel)
-
-        dictlabel = {'B-ORG':[0,0,0,0,0,0,0,0,1], 'B-MISC':[0,0,0,0,0,0,0,1,0], 'I-ORG':[0,0,0,0,0,0,1,0,0], 
-                     'B-PER':[0,0,0,0,0,1,0,0,0], 'I-MISC':[0,0,0,0,1,0,0,0,0], 'O':[0,0,0,1,0,0,0,0,0], 
-                     'I-PER':[0,0,1,0,0,0,0,0,0], 'I-LOC':[0,1,0,0,0,0,0,0,0], 'B-LOC':[1,0,0,0,0,0,0,0,0]}
+        dictlabel = {'B-ORG': [0, 0, 0, 0, 0, 0, 0, 0, 1], 'B-MISC': [0, 0, 0, 0, 0, 0, 0, 1, 0], 'I-ORG': [0, 0, 0, 0, 0, 0, 1, 0, 0],
+                     'B-PER': [0, 0, 0, 0, 0, 1, 0, 0, 0], 'I-MISC': [0, 0, 0, 0, 1, 0, 0, 0, 0], 'O': [0, 0, 0, 1, 0, 0, 0, 0, 0],
+                     'I-PER': [0, 0, 1, 0, 0, 0, 0, 0, 0], 'I-LOC': [0, 1, 0, 0, 0, 0, 0, 0, 0], 'B-LOC': [1, 0, 0, 0, 0, 0, 0, 0, 0],
+                     None: [0, 0, 0, 0, 0, 0, 0, 0, 0]}
         for i in range(len(self.label)):
             for j in range(len(self.label[i])):
                 self.label[i][j] = torch.tensor(dictlabel[self.label[i][j]])
-        
+        self.label = [torch.stack(item) for item in self.label]
+
     def __len__(self):
-        return len(self.token)
+        return len(self.image)
 
     def __getitem__(self, index):
         # 获取数据和标签
-        image = Image.open(os.path.join(self.filename, self.image[index]))
+        if self.sentence_len[index] == 0:
+            print(f'Sentence length is zero, image file name is {os.path.join(self.filename, self.image[index])}.')
+        try:
+            image = Image.open(os.path.join(self.filename, self.image[index]))
+        except PIL.UnidentifiedImageError:
+            print(f'Image error, image file name is {self.image[index]}.')
+            image = Image.open(os.path.join('../IJCAI2019_data/twitter2017_images', '16_05_01_6.jpg'))
         if self.image_preprocess:
             image = self.image_preprocess(image)
         sentence = self.sentence[index]
-
-        # setoflen = []
-        # for i in range(len(self.sentence)):
-        #     setoflen.append(len(self.sentence[i]))
-        # setoflen = set(setoflen)
-        # print(setoflen)
 
         if self.text_preprocess:
             sentence = self.text_preprocess(sentence, max_length=self.max_len, truncation=True, padding="max_length", return_tensors='pt')
@@ -132,8 +147,8 @@ class CustomDataset(Dataset):
                 sentence[key] = torch.squeeze(value, dim=0)
 
         label = self.label[index]
-        # print(len(self.label))
-        return image, sentence, label
+        sentence_len = self.sentence_len[index]
+        return image, sentence, label, sentence_len
 
 
 if __name__ == "__main__":
