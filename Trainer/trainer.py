@@ -7,8 +7,6 @@ from tqdm import tqdm
 from torch.cuda.amp import autocast
 
 
-
-
 class Trainer(object):
     def __init__(self, model: nn.Module, device: str, epochs: int, train_dataloader: DataLoader,
                  valid_dataloader: DataLoader, test_dataloader: DataLoader, optimizer: optim.Optimizer,

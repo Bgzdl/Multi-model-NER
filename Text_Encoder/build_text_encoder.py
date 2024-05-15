@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from transformers import BertTokenizer, BertModel
+from transformers import AutoTokenizer, AutoModelForTokenClassification
 
 
 class TextEncoder(nn.Module):
@@ -44,8 +45,12 @@ def build_text_encoder(
         :param proj_dim: the dimension of the output projection
         :return: bert model with projection and its tokenizer
     """
-    tokenizer = BertTokenizer.from_pretrained(model_name)
-    model = BertModel.from_pretrained(model_name)
+    if model_name == 'distilbert-NER':
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = AutoModelForTokenClassification.from_pretrained(model_name)
+    else:
+        tokenizer = BertTokenizer.from_pretrained(model_name)
+        model = BertModel.from_pretrained(model_name)
 
     text_encoder = TextEncoder(model, proj_dim, frozen_base=frozen)
 

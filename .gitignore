@@ -2,4 +2,4 @@
 **/test.py
 **/__pycache__/
 /.conda
-**/distilbert-NER/
+distilbert-NER/

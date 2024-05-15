@@ -13,9 +13,7 @@ def calculate_loss(outputs, labels, sentence_len, loss_fun):
     for i in range(outputs.shape[0]):
         output = outputs[i][:sentence_len[i]]
         label = labels[i][:sentence_len[i]].float()
-        # print(output.shape, label.shape)
         current_loss = loss_fun(output, label)
-        # print(i, current_loss.item(), sentence_len[i])
         loss += current_loss / sentence_len[i]
     return loss / batch_size
 
@@ -26,7 +24,7 @@ if __name__ == "__main__":
     device = 'cuda'
     epochs = 30
     # 模型准备
-    model = FusionModel(max_seq_len=max_seq_len, device=device)
+    model = FusionModel(max_seq_len=max_seq_len, device=device, text_model_name='distilbert-NER')
     model.to(device)
     # 数据准备
     print("Preparing Data ...")
@@ -44,6 +42,7 @@ if __name__ == "__main__":
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
     trainer = Trainer(model, device, epochs, train_dataloader, valid_dataloader, test_dataloader, optimizer, scheduler, scaler, loss_fun, save_path='./result/')
     trainer.train()
+    trainer.test()
     # # 此处一定要使用混合精度进行训练
     # for epoch in range(epochs):
     #     running_loss = 0.0
