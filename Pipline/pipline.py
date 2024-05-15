@@ -13,7 +13,7 @@ class Pipline(nn.Module):
         self.fc2 = nn.Linear(in_features=128, out_features=256)
         self.fc3 = nn.Linear(in_features=256, out_features=128)
         self.fc4 = nn.Linear(in_features=128, out_features=64)
-        self.fc5 = nn.Linear(in_features=64,out_features=self.categories)
+        self.fc5 = nn.Linear(in_features=64, out_features=self.categories)
 
 
     def forward(self, x):
@@ -21,16 +21,16 @@ class Pipline(nn.Module):
         x = torch.relu(self.fc2(x))
         x = torch.relu(self.fc3(x))
         x = torch.relu(self.fc4(x))
-        x = torch.sigmoid(self.fc5(x))
+        x = torch.softmax(self.fc5(x), dim=-1)
         return x
 
 
 if __name__ == "__main__":
     max_length = 10
     dimension = 10
-    categories = 2
+    categories = 4
     m = Pipline(dimension=dimension, max_length=max_length, categories=categories)
     x = torch.rand(max_length, dimension)
     y = m(x)
-    print(x)
-    print(y)
+    print(x.shape)
+    print(y.shape)
