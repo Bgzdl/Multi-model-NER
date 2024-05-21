@@ -68,7 +68,6 @@ class Trainer(object):
         for i in range(batch_size):
             sample_predict = predict[i][:sentence_len[i]]
             sample_label = label[i][:sentence_len[i]]
-            print(sample_predict, sample_label)
             equal_vectors = torch.all(sample_predict == sample_label, dim=-1)
             # 计算相等的 one-hot 编码向量的数量
             correct += torch.sum(equal_vectors).item()
@@ -82,6 +81,7 @@ class Trainer(object):
             # 训练
             self.model.train()
             train_bar = tqdm(self.train_dataloader, desc=f"Train epoch {epoch + 1}/{self.epochs}")
+            running_loss = 0.0
             for batch in train_bar:
                 with autocast():
                     image, text, label, sentence_len = batch
@@ -94,12 +94,13 @@ class Trainer(object):
                     # 测试验证代码
                     # 测试结束
                     loss = self.calculate_loss(output, label, sentence_len, self.loss_fun)
-                    loss_epoch.append(loss.item())
+                    running_loss += loss.item()
                     train_bar.set_postfix(loss=loss.item())
                 self.scaler.scale(loss).backward()
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
                 self.optimizer.zero_grad()
+            loss_epoch.append(running_loss/len(train_bar))
             # 验证
             self.model.eval()
             val_bar = tqdm(self.valid_dataloader, desc=f"Valid epoch {epoch + 1}/{self.epochs}")
@@ -115,6 +116,8 @@ class Trainer(object):
                     with autocast():
                         output = self.model(image, text)
                         predict = self.predict(output)
+                        print(predict.shape)
+                        print(predict[0][0])
                         acc, correct_num, total_num = self.evaluate(predict, label, sentence_len)
                         correct += correct_num
                         total += total_num

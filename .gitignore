@@ -3,3 +3,6 @@
 **/__pycache__/
 /.conda
 distilbert-NER/
+**/bert_base_cased.zip
+**/bert_base_cased/
+result/

@@ -7,6 +7,7 @@ from torch.utils.data import Dataset
 
 wrong_jpg = ['O_2548.jpg', 'O_1478.jpg', 'O_2955.jpg', 'O_2366.jpg', 'O_2430.jpg', 'O_2590.jpg']
 
+
 class CustomDataset(Dataset):
     @staticmethod
     def pad_list_to_length(lst, target_length, pad_value=None):
@@ -34,13 +35,13 @@ class CustomDataset(Dataset):
             if line[0] == "\n":
                 if len(sentence) > 0:
                     try:
-                        with Image.open(os.path.join(data_path, file_name.split('/')[0]+'_images', imgid)) as im:
+                        with Image.open(os.path.join(data_path, file_name.split('/')[0] + '_images', imgid)) as im:
                             single_sentence = ' '.join(sentence[1:len(sentence)])
                             data_sentence.append(single_sentence)
                             label = label[1:len(label)]
                             data_label.append(label)
-                            data.append((single_sentence,label))
-                            prefix = file_name.split('/')[0]+'_images'
+                            data.append((single_sentence, label))
+                            prefix = file_name.split('/')[0] + '_images'
                             data_img.append(f'{prefix}/' + str(imgid))
                             data_auxlabel.append(auxlabel)
                             sentence = []
@@ -62,13 +63,13 @@ class CustomDataset(Dataset):
 
         if len(sentence) > 0:
             try:
-                with Image.open(os.path.join(data_path, file_name.split('/')[0]+'_images', imgid)) as im:
+                with Image.open(os.path.join(data_path, file_name.split('/')[0] + '_images', imgid)) as im:
                     single_sentence = ' '.join(sentence[1:len(sentence)])
                     data_sentence.append(single_sentence)
                     label = label[1:len(label)]
                     data_label.append(label)
-                    data.append((single_sentence,label))
-                    prefix = file_name.split('/')[0]+'_images'
+                    data.append((single_sentence, label))
+                    prefix = file_name.split('/')[0] + '_images'
                     data_img.append(f'{prefix}/' + str(imgid))
                     data_auxlabel.append(auxlabel)
             except IOError:
@@ -86,13 +87,13 @@ class CustomDataset(Dataset):
         self.text_preprocess = text_preprocess
         self.max_len = max_len
         # 读取数据
-        if mode=='train':
+        if mode == 'train':
             data, imgs = self.load_data(filename, 'twitter2015/train.txt')
             data_1, imgs_1 = self.load_data(filename, 'twitter2017/train.txt')
-        elif mode=='valid':
+        elif mode == 'valid':
             data, imgs = self.load_data(filename, 'twitter2015/valid.txt')
             data_1, imgs_1 = self.load_data(filename, 'twitter2017/valid.txt')
-        elif mode=='test':
+        elif mode == 'test':
             data, imgs = self.load_data(filename, 'twitter2015/test.txt')
             data_1, imgs_1 = self.load_data(filename, 'twitter2017/test.txt')
         else:
@@ -124,6 +125,11 @@ class CustomDataset(Dataset):
             for j in range(len(self.label[i])):
                 self.label[i][j] = torch.tensor(dictlabel[self.label[i][j]])
         self.label = [torch.stack(item) for item in self.label]
+
+        # self.image = self.image[:16]
+        # self.label = self.label[:16]
+        # self.sentence = self.sentence[:16]
+        # self.sentence_len = self.sentence_len[:16]
 
     def __len__(self):
         return len(self.image)

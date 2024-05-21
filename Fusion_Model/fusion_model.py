@@ -1,5 +1,5 @@
 from Data_Processing.ReadData import CustomDataset
-from Image_Encoder.build_image_encoder import build_image_model
+from Image_Encoder.build_image_encoder import build_image_model, build_Lora_image_model
 from Text_Encoder.build_text_encoder import build_text_encoder
 import torch.nn as nn
 import torch
@@ -14,9 +14,9 @@ from Fusion_Model.fusion_layer import FusionBlock
 class FusionModel(nn.Module):
     def __init__(self, image_model_name: str = 'ViT-B/16', text_model_name: str = 'bert-base-cased', proj_dim=512, num_of_heads=8, max_seq_len=64, device='cpu'):
         super().__init__()
-        self.visual, self.visual_preprocess = build_image_model(image_model_name, proj_dim=proj_dim)
-        self.tokenizer, self.text = build_text_encoder(text_model_name, proj_dim=proj_dim)
-        self.fusion_block = FusionBlock(1, proj_dim, num_of_heads, 0.5)
+        self.visual, self.visual_preprocess = build_Lora_image_model(image_model_name, proj_dim=proj_dim)
+        self.tokenizer, self.text = build_text_encoder(text_model_name, proj_dim=proj_dim, frozen=True)
+        self.fusion_block = FusionBlock(3, proj_dim, num_of_heads, 0.5)
         self.fusion_block.to(device)
         self.pipeline = Pipline(proj_dim, max_seq_len, 9)
 
