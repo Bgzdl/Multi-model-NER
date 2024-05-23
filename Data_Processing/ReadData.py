@@ -20,13 +20,13 @@ class CustomDataset(Dataset):
         f = open(os.path.join(data_path, file_name), encoding='utf-8')
         data = []
         data_sentence = []
-        data_label = []
+
         data_img = []
-        data_auxlabel = []
 
         sentence = []
-        label = []
-        auxlabel = []
+        label_O = []
+        label_T = []
+
         imgid = ''
         for line in f:
             if line.startswith('IMGID:'):
@@ -38,40 +38,56 @@ class CustomDataset(Dataset):
                         with Image.open(os.path.join(data_path, file_name.split('/')[0] + '_images', imgid)) as im:
                             single_sentence = ' '.join(sentence[1:len(sentence)])
                             data_sentence.append(single_sentence)
-                            label = label[1:len(label)]
-                            data_label.append(label)
-                            data.append((single_sentence, label))
+
+                            label_O = label_O[1:len(label_O)]
+                            label_T = label_T[1:len(label_T)]
+
+                            data.append((single_sentence, label_O, label_T))
                             prefix = file_name.split('/')[0] + '_images'
                             data_img.append(f'{prefix}/' + str(imgid))
-                            data_auxlabel.append(auxlabel)
                             sentence = []
-                            label = []
+                            label_O = []
+                            label_T = []
                             imgid = ''
-                            auxlabel = []
+
                     except IOError:
                         pass
                 continue
             splits = line.split('\t')
             sentence.append(splits[0])
             cur_label = splits[-1][:-1]
-            if cur_label == 'B-OTHER':
-                cur_label = 'B-MISC'
-            elif cur_label == 'I-OTHER':
-                cur_label = 'I-MISC'
-            label.append(cur_label)
-            auxlabel.append(cur_label[0])
+            if cur_label == 'B-OTHER' or cur_label == 'I-OTHER' or cur_label == 'B-MISC' or cur_label == 'I-MISC':
+                cur_label = 'MISC'
+            elif cur_label == 'B-ORG' or cur_label == 'I-ORG':
+                cur_label = 'ORG'
+            elif cur_label == 'B-LOC' or cur_label == 'I-LOC':
+                cur_label = 'LOC'    
+            elif cur_label == 'B-PER' or cur_label == 'I-PER':
+                cur_label = 'PER'
+            if cur_label == 'O':
+                label_O.append(0)
+            else:
+                label_O.append(1)
+            label_T.append(cur_label)
+
 
         if len(sentence) > 0:
             try:
                 with Image.open(os.path.join(data_path, file_name.split('/')[0] + '_images', imgid)) as im:
                     single_sentence = ' '.join(sentence[1:len(sentence)])
                     data_sentence.append(single_sentence)
-                    label = label[1:len(label)]
-                    data_label.append(label)
-                    data.append((single_sentence, label))
+
+                    label_O = label_O[1:len(label_O)]
+                    label_T = label_T[1:len(label_T)]
+
+                    data.append((single_sentence, label_O, label_T))
                     prefix = file_name.split('/')[0] + '_images'
                     data_img.append(f'{prefix}/' + str(imgid))
-                    data_auxlabel.append(auxlabel)
+                    sentence = []
+                    label_O = []
+                    label_T = []
+                    imgid = ''
+
             except IOError:
                 pass
         f.close()
@@ -81,7 +97,10 @@ class CustomDataset(Dataset):
         self.filename = filename
         self.image = []
         self.sentence = []
-        self.label = []
+        # 标签是否为O（O为0，非O为1）
+        self.label_O = []
+        # 标签真实值
+        self.label_T = []
         self.sentence_len = []
         self.image_preprocess = image_preprocess
         self.text_preprocess = text_preprocess
@@ -111,20 +130,25 @@ class CustomDataset(Dataset):
             if len(data[i][1]) == 0:
                 # print(data[i][0], data[i][1])
                 print(imgs[i])
-            self.label.append(CustomDataset.pad_list_to_length(data[i][1], max_sentence_len, None))
+            self.label_O.append(CustomDataset.pad_list_to_length(data[i][1], max_sentence_len, None))
+            self.label_T.append(CustomDataset.pad_list_to_length(data[i][2], max_sentence_len, None))
             self.image.append(imgs[i])
 
         # image和token类型转换
         self.image = np.array(self.image)
 
-        dictlabel = {'B-ORG': [0, 0, 0, 0, 0, 0, 0, 0, 1], 'B-MISC': [0, 0, 0, 0, 0, 0, 0, 1, 0], 'I-ORG': [0, 0, 0, 0, 0, 0, 1, 0, 0],
-                     'B-PER': [0, 0, 0, 0, 0, 1, 0, 0, 0], 'I-MISC': [0, 0, 0, 0, 1, 0, 0, 0, 0], 'O': [0, 0, 0, 1, 0, 0, 0, 0, 0],
-                     'I-PER': [0, 0, 1, 0, 0, 0, 0, 0, 0], 'I-LOC': [0, 1, 0, 0, 0, 0, 0, 0, 0], 'B-LOC': [1, 0, 0, 0, 0, 0, 0, 0, 0],
-                     None: [0, 0, 0, 0, 0, 0, 0, 0, 0]}
-        for i in range(len(self.label)):
-            for j in range(len(self.label[i])):
-                self.label[i][j] = torch.tensor(dictlabel[self.label[i][j]])
-        self.label = [torch.stack(item) for item in self.label]
+        dictlabel_T = {'PER': [0, 0, 0, 0, 1], 'LOC': [0, 0, 0, 1, 0], 'ORG': [0, 0, 1, 0, 0],
+                     'MISC': [0, 1, 0, 0, 0], 'O': [1, 0, 0, 0, 0], None: [0, 0, 0, 0, 0]}
+        for i in range(len(self.label_T)):
+            for j in range(len(self.label_T[i])):
+                self.label_T[i][j] = torch.tensor(dictlabel_T[self.label_T[i][j]])
+        self.label_T = [torch.stack(item) for item in self.label_T]
+
+        dictlabel_O = {0: [0, 1], 1: [1, 0], None: [0, 0]}
+        for i in range(len(self.label_O)):
+            for j in range(len(self.label_O[i])):
+                self.label_O[i][j] = torch.tensor(dictlabel_O[self.label_O[i][j]])
+        self.label_O = [torch.stack(item) for item in self.label_O]
 
         # self.image = self.image[:16]
         # self.label = self.label[:16]
@@ -152,21 +176,23 @@ class CustomDataset(Dataset):
             for key, value in sentence.items():
                 sentence[key] = torch.squeeze(value, dim=0)
 
-        label = self.label[index]
+        label_O = self.label_O[index]
+        label_T = self.label_T[index]
         sentence_len = self.sentence_len[index]
-        return image, sentence, label, sentence_len
+        return image, sentence, label_O, label_T, sentence_len
+
 
 
 if __name__ == "__main__":
     # training set
-    A = CustomDataset('../IJCAI2019_data', 0)
+    A = CustomDataset('E:/NLP/IJCAI2019_data', "train")
     for i in range(7122):
         A[i]
     # validation set
-    B = CustomDataset('../IJCAI2019_data', 1)
+    B = CustomDataset('E:/NLP/IJCAI2019_data', "valid")
     for i in range(1664):
         B[i]
     # test set
-    C = CustomDataset('../IJCAI2019_data', 2)
+    C = CustomDataset('E:/NLP/IJCAI2019_data', "test")
     for i in range(3929):
         C[i]
