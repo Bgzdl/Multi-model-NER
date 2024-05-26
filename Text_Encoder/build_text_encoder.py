@@ -46,8 +46,9 @@ def build_text_encoder(
         :return: bert model with projection and its tokenizer
     """
     if model_name == 'distilbert-NER':
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = AutoModelForTokenClassification.from_pretrained(model_name)
+        model_path = 'dslim/' + model_name
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        model = AutoModelForTokenClassification.from_pretrained(model_path)
     else:
         tokenizer = BertTokenizer.from_pretrained(model_name)
         model = BertModel.from_pretrained(model_name)

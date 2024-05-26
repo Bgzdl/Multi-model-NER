@@ -28,7 +28,6 @@ class FusionLayer(nn.Module):
         self.heads = num_of_heads
 
     def forward(self, I, T):
-        self.attention(T, I, I)
         x = self.dropout(self.attention(T, I, I)[0])
         x = self.layer_norm_1(T + x)
         identity = x.clone()
@@ -40,21 +39,15 @@ class FusionLayer(nn.Module):
 class FusionBlock(nn.Module):
     def __init__(self, layer_num: int, embed_dim: int, num_of_heads: int, dropout_rate: float):
         super().__init__()
-        self.blocks = []
-        self.length = layer_num
+
+        self.layer_num = layer_num
+
+        self.blocks = nn.ModuleList([])
         for i in range(layer_num):
             self.blocks.append(FusionLayer(embed_dim, num_of_heads, dropout_rate))
 
-    def to(self, device):
-        for block in self.blocks:
-            block.to(device)
-
-    def cuda(self, device='cuda'):
-        for block in self.blocks:
-            block.to(device)
-
     def forward(self, I, T):
         x = T.clone()
-        for i in range(self.length):
-            x = self.blocks[i](I, x)
+        for block in self.blocks:
+            x = block(I, x)
         return x

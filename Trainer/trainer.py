@@ -8,9 +8,20 @@ from torch.cuda.amp import autocast
 
 
 class Trainer(object):
-    def __init__(self, model: nn.Module, device: str, epochs: int, train_dataloader: DataLoader,
-                 valid_dataloader: DataLoader, test_dataloader: DataLoader, optimizer: optim.Optimizer,
-                 scheduler, scaler, loss_fun, save_path):
+    def __init__(
+            self,
+            model: nn.Module,
+            device: str,
+            epochs: int,
+            train_dataloader: DataLoader,
+            valid_dataloader: DataLoader,
+            test_dataloader: DataLoader,
+            optimizer: optim.Optimizer,
+            scheduler,
+            scaler,
+            loss_fun,
+            save_path
+    ):
         self.model = model
         self.device = device
         self.epochs = epochs
@@ -24,53 +35,22 @@ class Trainer(object):
         self.save_path = save_path
 
     @staticmethod
-    def calculate_loss(outputs, labels, sentence_len, loss_fun):
-        """
-        :param outputs: [batch size, max_seq_length, categories]
-        :param labels: [batch size, max_seq_length, categories]
-        :param sentence_len: [batch size]
-        :param loss_fun: nn.CrossEntropyLoss
-        :return: loss
-        """
-        loss = 0.0
-        batch_size = outputs.shape[0]
-        for i in range(outputs.shape[0]):
-            output = outputs[i][:sentence_len[i]]
-            label = labels[i][:sentence_len[i]].float()
-            # print(output.shape, label.shape)
-            current_loss = loss_fun(output, label)
-            # print(i, current_loss.item(), sentence_len[i])
-            loss += current_loss / sentence_len[i]
-        return loss / batch_size
-
-    @staticmethod
-    def predict(output):
-        """
-        :param output: [batch size, max_seq_length, categories]
-        :return: [batch size, max_seq_length]
-        """
-        indices = torch.argmax(output, dim=-1, keepdim=True)
-        predict = torch.zeros_like(output)
-        predict.scatter_(-1, indices, 1)
-        return predict
-
-    @staticmethod
     def evaluate(predict, label, sentence_len):
         """
-        :param predict: [batch size, max_seq_len, categories]
-        :param label: [batch size, max_seq_len, categories]
-        :param sentence_len: [batch size, 1], type is list
+        :param predict: list([batch size, seq_len])
+        :param label: tensor([batch size, max_seq_len])
+        :param sentence_len: list([batch size, 1])
         :return:
         """
         total_num = sum(sentence_len)
-        batch_size = predict.shape[0]
+        batch_size = len(predict)
         correct = 0
         for i in range(batch_size):
-            sample_predict = predict[i][:sentence_len[i]]
+            sample_predict = torch.tensor(predict[i], device=label.device)
             sample_label = label[i][:sentence_len[i]]
-            print(sample_predict, sample_label)
-            equal_vectors = torch.all(sample_predict == sample_label, dim=-1)
-            # 计算相等的 one-hot 编码向量的数量
+            assert sample_predict.shape == sample_label.shape
+            # print(sample_predict, sample_label)
+            equal_vectors = torch.eq(sample_predict, sample_label)
             correct += torch.sum(equal_vectors).item()
         return correct / total_num, correct, total_num
 
@@ -84,18 +64,18 @@ class Trainer(object):
             train_bar = tqdm(self.train_dataloader, desc=f"Train epoch {epoch + 1}/{self.epochs}")
             for batch in train_bar:
                 with autocast():
-                    image, text, label, sentence_len = batch
-                    # label: max_sentence_len * batch size
+                    image, text, label, _ = batch
+
                     image = image.to(self.device)
                     for key, value in text.items():
                         text[key] = value.to(self.device)
                     label = label.to(self.device)
-                    output = self.model(image, text)
-                    # 测试验证代码
-                    # 测试结束
-                    loss = self.calculate_loss(output, label, sentence_len, self.loss_fun)
+
+                    loss = self.model(image, text, label)
                     loss_epoch.append(loss.item())
+
                     train_bar.set_postfix(loss=loss.item())
+
                 self.scaler.scale(loss).backward()
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
@@ -107,18 +87,19 @@ class Trainer(object):
             with torch.no_grad():
                 for batch in val_bar:
                     image, text, label, sentence_len = batch
-                    # label: max_sentence_len * batch size
+                    # transfer to device
                     image = image.to(self.device)
                     for key, value in text.items():
                         text[key] = value.to(self.device)
                     label = label.to(self.device)
+
                     with autocast():
-                        output = self.model(image, text)
-                        predict = self.predict(output)
-                        acc, correct_num, total_num = self.evaluate(predict, label, sentence_len)
+                        output = self.model(image, text, None)
+                        acc, correct_num, total_num = self.evaluate(output, label, sentence_len)
                         correct += correct_num
                         total += total_num
                         val_bar.set_postfix(acc=acc)
+
                 total_acc = correct / total
                 acc_epoch.append(total_acc)
                 if total_acc > max(acc_epoch) and not epoch == 0:
@@ -135,18 +116,19 @@ class Trainer(object):
             correct, total = 0, 0
             for batch in test_bar:
                 image, text, label, sentence_len = batch
-                # label: max_sentence_len * batch size
+
                 image = image.to(self.device)
                 for key, value in text.items():
                     text[key] = value.to(self.device)
                 label = label.to(self.device)
+
                 with autocast():
-                    output = self.model(image, text)
-                    predict = self.predict(output)
-                    acc, correct_num, total_num = self.evaluate(predict, label, sentence_len)
+                    output = self.model(image, text, None)
+                    acc, correct_num, total_num = self.evaluate(output, label, sentence_len)
                     correct += correct_num
                     total += total_num
                     test_bar.set_postfix(acc=acc)
+
             total_acc = correct / total
             file_path = self.save_path + 'Test_result.txt'
             with open(file_path, 'w') as file:
