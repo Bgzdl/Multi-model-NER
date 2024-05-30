@@ -5,7 +5,8 @@ from Fusion_Model.fusion_model import FusionModel
 from Data_Processing.ReadData import CustomDataset
 from torch.cuda.amp import GradScaler
 from Trainer.trainer import Trainer
-
+import os
+os.environ["HF_ENDPOINT"] = 'https://hf-mirror.com'
 
 if __name__ == "__main__":
     # 参数设定
@@ -13,15 +14,15 @@ if __name__ == "__main__":
     device = 'cuda'
     epochs = 5
     # 模型准备
-    model = FusionModel(num_classes=9).to(device)
+    model = FusionModel(num_classes=5, text_model_name='bert_base_cased').to(device)
     # 数据准备
     print("Preparing Data ...")
     train_dataset = CustomDataset('./datas/IJCAI2019_data', mode='train', image_preprocess=model.visual_preprocess, text_preprocess=model.tokenizer, max_len=max_seq_len)
-    train_dataloader = DataLoader(train_dataset, batch_size=16)
+    train_dataloader = DataLoader(train_dataset, batch_size=32)
     valid_dataset = CustomDataset('./datas/IJCAI2019_data', mode='valid', image_preprocess=model.visual_preprocess, text_preprocess=model.tokenizer, max_len=max_seq_len)
-    valid_dataloader = DataLoader(valid_dataset, batch_size=16)
+    valid_dataloader = DataLoader(valid_dataset, batch_size=32)
     test_dataset = CustomDataset('./datas/IJCAI2019_data', mode='test', image_preprocess=model.visual_preprocess, text_preprocess=model.tokenizer, max_len=max_seq_len)
-    test_dataloader = DataLoader(test_dataset, batch_size=16)
+    test_dataloader = DataLoader(test_dataset, batch_size=32)
     # 损失函数，优化器，混合进度scaler，学习率调度器
     scaler = GradScaler()
     loss_fun = nn.CrossEntropyLoss()

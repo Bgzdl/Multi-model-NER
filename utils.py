@@ -4,15 +4,17 @@ import torch
 
 dict_label = {
     None: -1,
+    
     'O': 0,
-    'B-LOC': 1,
-    'I-LOC': 2,
-    'B-PER': 3,
-    'I-PER': 4,
-    'B-MISC': 5,
-    'I-MISC': 6,
-    'B-ORG': 7,
-    'I-ORG': 8,
+    
+    'LOC': 1,
+
+    'PER': 2,
+
+    'MISC': 3,
+
+    'ORG': 4,
+
 }
 inverse_dict_label = {v: k for k, v in dict_label.items()}
 
@@ -89,9 +91,76 @@ def calculate_ner_accuracy(gold_named_entity, pred_named_entity):
 
     return correct_predictions, total_pred_entities, total_gold_entities
 
+def calculate_per_accuracy(gold_named_entity, pred_named_entity):
+    correct_predictions = 0
+    total_pred_entities = 0
+    total_gold_entities = 0
+
+    # 遍历预测的命名实体
+    for word, predicted_entity in pred_named_entity.items():
+        if predicted_entity == 'PER':
+            total_pred_entities += 1
+        # 检查该单词是否在真实标注中且实体类型匹配
+            if word in gold_named_entity and predicted_entity == gold_named_entity[word]:
+                correct_predictions += 1
+    for word, gold_entity in gold_named_entity.items():
+        if gold_entity == 'PER':
+            total_gold_entities += 1
+    return correct_predictions, total_pred_entities, total_gold_entities
+
+def calculate_loc_accuracy(gold_named_entity, pred_named_entity):
+    correct_predictions = 0
+    total_pred_entities = 0
+    total_gold_entities = 0
+
+    # 遍历预测的命名实体
+    for word, predicted_entity in pred_named_entity.items():
+        if predicted_entity == 'LOC':
+            total_pred_entities += 1
+        # 检查该单词是否在真实标注中且实体类型匹配
+            if word in gold_named_entity and predicted_entity == gold_named_entity[word]:
+                correct_predictions += 1
+    for word, gold_entity in gold_named_entity.items():
+        if gold_entity == 'LOC':
+            total_gold_entities += 1
+    return correct_predictions, total_pred_entities, total_gold_entities
+
+def calculate_org_accuracy(gold_named_entity, pred_named_entity):
+    correct_predictions = 0
+    total_pred_entities = 0
+    total_gold_entities = 0
+
+    # 遍历预测的命名实体
+    for word, predicted_entity in pred_named_entity.items():
+        if predicted_entity == 'ORG':
+            total_pred_entities += 1
+        # 检查该单词是否在真实标注中且实体类型匹配
+            if word in gold_named_entity and predicted_entity == gold_named_entity[word]:
+                correct_predictions += 1
+    for word, gold_entity in gold_named_entity.items():
+        if gold_entity == 'ORG':
+            total_gold_entities += 1
+    return correct_predictions, total_pred_entities, total_gold_entities
+
+def calculate_misc_accuracy(gold_named_entity, pred_named_entity):
+    correct_predictions = 0
+    total_pred_entities = 0
+    total_gold_entities = 0
+
+    # 遍历预测的命名实体
+    for word, predicted_entity in pred_named_entity.items():
+        if predicted_entity == 'MISC':
+            total_pred_entities += 1
+        # 检查该单词是否在真实标注中且实体类型匹配
+            if word in gold_named_entity and predicted_entity == gold_named_entity[word]:
+                correct_predictions += 1
+    for word, gold_entity in gold_named_entity.items():
+        if gold_entity == 'MISC':
+            total_gold_entities += 1
+    return correct_predictions, total_pred_entities, total_gold_entities
 
 if __name__ == '__main__':
-    predicted_seq = [0,  0,  0,  0,  0,  0,  3,  4,  4,  4,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]
+    predicted_seq = [0,  0,  0,  0,  0,  0,  2,  2,  2,  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0]
     tokenized_text = ['_', ':', 'Me', 'outside', 'of', 'where', 'George', 'Z', '##immer', '##man', 'got', 'shot', 'at', '.', 'You', 'know', 'God', 'is', 'so', 'good', '.']
     named_entity = extract_named_entity(predicted_seq, tokenized_text)
     print(named_entity)

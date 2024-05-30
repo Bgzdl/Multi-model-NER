@@ -50,10 +50,14 @@ class CustomDataset(Dataset):
 
                 cur_label = splits[-1][:-1]
 
-                if cur_label == 'B-OTHER':
-                    cur_label = 'B-MISC'
-                elif cur_label == 'I-OTHER':
-                    cur_label = 'I-MISC'
+                if cur_label == 'B-OTHER' or cur_label == 'I-OTHER' or cur_label == 'B-MISC' or cur_label == 'I-MISC':
+                    cur_label = 'MISC'
+                elif cur_label == 'B-ORG' or cur_label == 'I-ORG':
+                    cur_label = 'ORG'
+                elif cur_label == 'B-LOC' or cur_label == 'I-LOC':
+                    cur_label = 'LOC'    
+                elif cur_label == 'B-PER' or cur_label == 'I-PER':
+                    cur_label = 'PER'
 
                 label.append(cur_label)
 
