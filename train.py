@@ -11,7 +11,7 @@ if __name__ == "__main__":
     # 参数设定
     max_seq_len = 64
     device = 'cuda'
-    epochs = 30
+    epochs = 5
     # 模型准备
     model = FusionModel(num_classes=9).to(device)
     # 数据准备

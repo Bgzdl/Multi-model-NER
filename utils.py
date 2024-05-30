@@ -1,5 +1,7 @@
 import re
 
+import torch
+
 dict_label = {
     None: -1,
     'O': 0,
@@ -32,12 +34,26 @@ def pad_list_to_length(lst, target_length, pad_value=None):
     return lst[:target_length] + padding if len(lst) < target_length else lst[:target_length]
 
 
-def extract_named_entity(predicted_seq, tokenized_text):
+def extract_token(token_idxs_list, tokenizer):
+    tokenized_texts = []
+
+    for token_idxs in token_idxs_list:
+        token_idxs = [idx for idx in token_idxs if idx not in [0, 101, 102]]
+        tokens = tokenizer.convert_ids_to_tokens(token_idxs)
+        tokenized_texts.append(tokens)
+
+    return tokenized_texts
+
+
+def extract_named_entity(label_seq, tokenized_text):
     named_entity = {}
     entity = ''
     entity_type_count = {}
 
-    for i, (token, label) in enumerate(zip(tokenized_text, predicted_seq)):
+    if isinstance(label_seq, torch.Tensor):
+        label_seq = label_seq.tolist()
+
+    for i, (token, label) in enumerate(zip(tokenized_text, label_seq)):
         if label != 0:
             if token.startswith('##'):
                 entity += token[2:]
@@ -58,6 +74,20 @@ def extract_named_entity(predicted_seq, tokenized_text):
         named_entity[entity] = inverse_dict_label[entity_type]
 
     return named_entity
+
+
+def calculate_ner_accuracy(gold_named_entity, pred_named_entity):
+    correct_predictions = 0
+    total_pred_entities = len(pred_named_entity)
+    total_gold_entities = len(gold_named_entity)
+
+    # 遍历预测的命名实体
+    for word, predicted_entity in pred_named_entity.items():
+        # 检查该单词是否在真实标注中且实体类型匹配
+        if word in gold_named_entity and predicted_entity == gold_named_entity[word]:
+            correct_predictions += 1
+
+    return correct_predictions, total_pred_entities, total_gold_entities
 
 
 if __name__ == '__main__':
