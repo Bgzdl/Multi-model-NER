@@ -265,10 +265,10 @@ class Trainer(object):
                         recall=metric['macro_metric'][2]
                     )
 
-            micro_acc = correct_pre_position / total_token
-            micro_precision = correct_ne / total_pred_entities
-            micro_recall = correct_ne / total_gold_entities
-            micro_f1 = 2 * (micro_precision * micro_recall) / (micro_precision + micro_recall)
+            micro_acc = correct_pre_position / total_token if total_token != 0 else 0.0
+            micro_precision = correct_ne / total_pred_entities if total_pred_entities != 0 else 0.0
+            micro_recall = correct_ne / total_gold_entities if total_gold_entities != 0 else 0.0
+            micro_f1 = 2 * (micro_precision * micro_recall) / (micro_precision + micro_recall) if micro_precision + micro_recall != 0 else 0.0
 
             per_micro_precision = per_correct_ne / per_total_pred_entities if per_total_pred_entities != 0 else 0.0
             per_micro_recall = per_correct_ne / per_total_gold_entities if per_total_gold_entities != 0 else 0.0 
@@ -309,21 +309,21 @@ class Trainer(object):
             recall_epoch.append(micro_recall)
             f1_epoch.append(micro_f1)
 
-            per_precision_epoch.append(micro_precision)
-            per_recall_epoch.append(micro_recall)
-            per_f1_epoch.append(micro_f1)
+            per_precision_epoch.append(per_micro_precision)
+            per_recall_epoch.append(per_micro_recall)
+            per_f1_epoch.append(per_micro_f1)
             
-            loc_precision_epoch.append(micro_precision)
-            loc_recall_epoch.append(micro_recall)
-            loc_f1_epoch.append(micro_f1)
+            loc_precision_epoch.append(loc_micro_precision)
+            loc_recall_epoch.append(loc_micro_recall)
+            loc_f1_epoch.append(loc_micro_f1)
             
-            org_precision_epoch.append(micro_precision)
-            org_recall_epoch.append(micro_recall)
-            org_f1_epoch.append(micro_f1)
+            org_precision_epoch.append(org_micro_precision)
+            org_recall_epoch.append(org_micro_recall)
+            org_f1_epoch.append(org_micro_f1)
             
-            misc_precision_epoch.append(micro_precision)
-            misc_recall_epoch.append(micro_recall)
-            misc_f1_epoch.append(micro_f1)
+            misc_precision_epoch.append(misc_micro_precision)
+            misc_recall_epoch.append(misc_micro_recall)
+            misc_f1_epoch.append(misc_micro_f1)
             
             if micro_f1 >= max(f1_epoch):
                 self.save_model(f'Best_model_from_{epoch + 1}')
@@ -397,10 +397,10 @@ class Trainer(object):
                 macro_precision += metric['macro_metric'][1]
                 macro_recall += metric['macro_metric'][2]
 
-            micro_acc = correct_pre_position / total_token
-            micro_precision = correct_ne / total_pred_entities
-            micro_recall = correct_ne / total_gold_entities
-            micro_f1 = 2 * (micro_precision * micro_recall) / (micro_precision + micro_recall)
+            micro_acc = correct_pre_position / total_token if total_token != 0 else 0.0
+            micro_precision = correct_ne / total_pred_entities if total_pred_entities != 0 else 0.0
+            micro_recall = correct_ne / total_gold_entities if total_gold_entities != 0 else 0.0
+            micro_f1 = 2 * (micro_precision * micro_recall) / (micro_precision + micro_recall) if micro_precision + micro_recall != 0 else 0.0
             
             per_micro_precision = per_correct_ne / per_total_pred_entities if per_total_pred_entities != 0 else 0.0
             per_micro_recall = per_correct_ne / per_total_gold_entities if per_total_gold_entities != 0 else 0.0 
